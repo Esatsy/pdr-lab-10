@@ -617,7 +617,7 @@ export default function Home() {
       <div className="mx-auto max-w-[1560px] px-4 py-5 sm:px-6 lg:px-8">
         <section className="mb-5 grid gap-3 sm:grid-cols-3">
           <div className="metric"><ShieldCheck className="size-4 text-primary" /><div><p className="text-[11px] text-muted-foreground">{l('Koruma durumu', 'Protection status')}</p><p className="mt-0.5 text-sm font-semibold">{l('4 / 4 kayıt şifreli', '4 / 4 records encrypted')}</p></div></div>
-          <div className="metric"><KeyRound className="size-4 text-primary" /><div><p className="text-[11px] text-muted-foreground">{l('Anahtar mimarisi', 'Key architecture')}</p><p className="mt-0.5 text-sm font-semibold">{l('2 bağımsız RSA yolu', '2 independent RSA paths')}</p></div></div>
+          <div className="metric"><KeyRound className="size-4 text-primary" /><div><p className="text-[11px] text-muted-foreground">{l('Anahtar mimarisi', 'Key architecture')}</p><p className="mt-0.5 text-sm font-semibold">{l('Çift anahtar-sarmalama mimarisi', 'Dual key-wrapping architecture')}</p></div></div>
           <div className="metric"><Activity className="size-4 text-primary" /><div><p className="text-[11px] text-muted-foreground">{l('Denetim bütünlüğü', 'Audit integrity')}</p><p className={`mt-0.5 text-sm font-semibold ${auditCompromised ? 'text-destructive' : ''}`}>{auditCompromised ? l('Müdahale tespit edildi', 'Tampering detected') : l('SHA-256 zinciri geçerli', 'SHA-256 chain valid')}</p></div></div>
         </section>
 
