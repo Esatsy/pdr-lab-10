@@ -609,6 +609,16 @@ export default function Home() {
               <span className={`size-1.5 rounded-full ${cryptoStatus === 'ready' ? 'bg-primary' : 'animate-pulse bg-amber-300'}`} />
               {cryptoStatus === 'ready' ? l('WEB CRYPTO HAZIR', 'WEB CRYPTO READY') : l('ANAHTAR ÜRETİLİYOR', 'GENERATING KEYS')}
             </Badge>
+            <a
+              className="source-link"
+              href="https://github.com/Esatsy/pdr-lab-10"
+              target="_blank"
+              rel="noreferrer"
+              aria-label={l('GitHub üzerinde kaynak kodu görüntüle', 'View source code on GitHub')}
+            >
+              <GitBranch />
+              <span className="hidden sm:inline">{l('Kaynak Kod', 'Source Code')}</span>
+            </a>
             <div className="language-switch" aria-label={l('Dil seçimi', 'Language selection')}>
               <Languages />
               <button className={lang === 'tr' ? 'language-active' : ''} onClick={() => changeLanguage('tr')}>TR</button>

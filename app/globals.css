@@ -69,6 +69,10 @@ button, select, input { font: inherit; }
 .language-switch > svg { width: .85rem; height: .85rem; margin: 0 .3rem; }
 .language-switch button { min-width: 1.9rem; height: 1.75rem; border-radius: .45rem; font-family: var(--font-geist-mono); font-size: .62rem; font-weight: 700; }
 .language-switch .language-active { background: #fff; color: var(--primary); box-shadow: 0 1px 5px rgb(21 61 47 / 10%); }
+.source-link { display: inline-flex; height: 2.15rem; align-items: center; justify-content: center; gap: .42rem; border: 1px solid var(--border); border-radius: .65rem; background: color-mix(in srgb, var(--secondary) 45%, white); padding: 0 .65rem; color: var(--foreground); font-size: .7rem; font-weight: 650; transition: 150ms ease; }
+.source-link:hover { border-color: color-mix(in srgb, var(--primary) 34%, var(--border)); background: color-mix(in srgb, var(--primary) 8%, white); color: var(--primary); }
+.source-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent); outline-offset: 2px; }
+.source-link svg { width: .95rem; height: .95rem; }
 .lifecycle-row { display: flex; align-items: flex-start; gap: .6rem; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: .65rem; background: color-mix(in srgb, var(--secondary) 35%, white); padding: .6rem; }
 .lifecycle-row > svg { width: .9rem; height: .9rem; flex: 0 0 auto; margin-top: .05rem; color: var(--primary); }
 .lifecycle-row strong { display: block; font-size: .64rem; }
