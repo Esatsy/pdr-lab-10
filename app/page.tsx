@@ -181,17 +181,17 @@ async function hashText(text: string) {
 }
 
 export default function Home() {
-  const [lang, setLang] = useState<Locale>('tr');
+  const [lang, setLang] = useState<Locale>('en');
   const [mode, setMode] = useState<AccessMode>('lawful');
   const [recordId, setRecordId] = useState('PDR-C-1004');
   const [authority, setAuthority] = useState('Mali Suçları Araştırma Birimi');
-  const [legalBasis, setLegalBasis] = useState('AML-14 / Şüpheli işlem incelemesi');
+  const [legalBasis, setLegalBasis] = useState('AML-14 / Suspicious transaction review');
   const [purpose, setPurpose] = useState('Şüpheli işlem analizi');
   const [duration, setDuration] = useState('24');
   const [identityVerified, setIdentityVerified] = useState(true);
   const [fields, setFields] = useState<string[]>(['islemKimligi', 'taraflar', 'tutar', 'tarih']);
   const [decision, setDecision] = useState<Decision>('idle');
-  const [reason, setReason] = useState('Bir senaryo seçin veya istek bağlamını düzenleyin.');
+  const [reason, setReason] = useState('Select a scenario or edit the request context.');
   const [result, setResult] = useState<Payload | null>(null);
   const [excluded, setExcluded] = useState<string[]>([]);
   const [activeStage, setActiveStage] = useState(-1);
@@ -252,7 +252,12 @@ export default function Home() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem('pdr-lab-locale');
-    if (saved === 'tr' || saved === 'en') setLang(saved);
+    if (saved === 'tr' || saved === 'en') {
+      setLang(saved);
+      document.documentElement.lang = saved;
+    } else {
+      document.documentElement.lang = 'en';
+    }
   }, []);
 
   function changeLanguage(next: Locale) {
