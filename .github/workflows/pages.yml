@@ -32,12 +32,12 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: Build static site
-        run: npm run build:pages
+        run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: dist-pages
+          path: dist
 
   deploy:
     environment:

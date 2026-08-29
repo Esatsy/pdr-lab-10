@@ -12,7 +12,6 @@ Uygulama, makaledeki akışı iki ayrı anahtar yolu üzerinden canlandırır: k
 ## Canlı uygulama
 
 - [GitHub Pages sürümü](https://esatsy.github.io/pdr-lab-10/)
-- [OpenAI Sites sürümü](https://pdr-lab-10.hakanyldrm.chatgpt.site/)
 
 ![PDR Lab arayüz önizlemesi](./public/og.png)
 
@@ -113,14 +112,10 @@ npm run dev
 Üretim derlemeleri:
 
 ```bash
-# OpenAI Sites / Cloudflare Worker hedefi
 npm run build
-
-# GitHub Pages için statik hedef
-npm run build:pages
 ```
 
-GitHub Pages çıktısı `dist-pages/` klasöründe oluşturulur.
+GitHub Pages çıktısı `dist/` klasöründe oluşturulur.
 
 ## Proje yapısı
 
@@ -128,15 +123,14 @@ GitHub Pages çıktısı `dist-pages/` klasöründe oluşturulur.
 app/page.tsx                 Laboratuvar, karar motoru ve doğrulama senaryoları
 app/globals.css              Tema ve uygulamaya özel stiller
 components/ui/               Yeniden kullanılabilir arayüz bileşenleri
-github-pages-entry.tsx       Statik GitHub Pages giriş noktası
-vite.pages.config.ts         GitHub Pages derleme ayarları
+main.tsx                     React uygulama giriş noktası
+vite.config.ts               Vite ve GitHub Pages derleme ayarları
 .github/workflows/pages.yml  Otomatik Pages dağıtımı
-.openai/hosting.json         OpenAI Sites proje bağlantısı
 ```
 
 ## Yayınlama
 
-`main` dalına yapılan her gönderim, GitHub Actions üzerinden statik Pages derlemesini üretir ve yayımlar. OpenAI Sites dağıtımı ayrı tutulmuştur; iki hedef aynı uygulama kaynak kodunu kullanır.
+`main` dalına yapılan her gönderim, GitHub Actions üzerinden statik Pages derlemesini üretir ve yayımlar.
 
 ## Sınırlamalar
 
