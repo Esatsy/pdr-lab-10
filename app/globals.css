@@ -71,6 +71,23 @@ button, select, input { font: inherit; }
 .lifecycle-row > svg { width: .9rem; height: .9rem; flex: 0 0 auto; margin-top: .05rem; color: var(--primary); }
 .lifecycle-row strong { display: block; font-size: .64rem; }
 .lifecycle-row small { display: block; margin-top: .12rem; color: var(--muted-foreground); font-size: .58rem; }
+.validation-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; }
+.validation-summary > div { min-height: 4.5rem; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: .75rem; background: color-mix(in srgb, var(--secondary) 38%, white); padding: .75rem; }
+.validation-summary span { display: block; color: var(--muted-foreground); font-size: .62rem; }
+.validation-summary strong { display: block; margin-top: .25rem; font-family: var(--font-geist-mono); font-size: 1.1rem; }
+.validation-summary small { margin-left: .15rem; color: var(--muted-foreground); font-size: .62rem; font-weight: 500; }
+.validation-card { border: 1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: .9rem; background: color-mix(in srgb, var(--card) 96%, transparent); padding: 1rem; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.validation-running { border-color: color-mix(in srgb, #d19436 45%, var(--border)); box-shadow: 0 0 0 3px rgb(209 148 54 / 7%); }
+.validation-pass { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.validation-fail { border-color: color-mix(in srgb, var(--destructive) 45%, var(--border)); }
+.validation-id { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: .7rem; background: color-mix(in srgb, var(--primary) 8%, white); color: var(--primary); font-family: var(--font-geist-mono); font-size: .72rem; font-weight: 800; }
+.validation-row { display: grid; grid-template-columns: 8.6rem minmax(0, 1fr); gap: .75rem; border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent); padding-top: .55rem; }
+.validation-row dt { color: var(--muted-foreground); font-family: var(--font-geist-mono); font-size: .58rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.validation-row dd { font-size: .71rem; line-height: 1.15rem; }
+.validation-observed { margin-top: .15rem; border: 1px solid color-mix(in srgb, var(--border) 76%, transparent); border-radius: .65rem; background: color-mix(in srgb, var(--secondary) 32%, white); padding: .65rem; }
+.validation-observed code { grid-column: 2; overflow-wrap: anywhere; color: var(--muted-foreground); font-family: var(--font-geist-mono); font-size: .58rem; }
+.observed-pass { border-color: color-mix(in srgb, var(--primary) 25%, transparent); background: color-mix(in srgb, var(--primary) 6%, white); }
+.observed-fail { border-color: color-mix(in srgb, var(--destructive) 25%, transparent); background: color-mix(in srgb, var(--destructive) 5%, white); }
 select option { background: #ffffff; color: #14261f; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
@@ -79,4 +96,7 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 640px) {
   .mode-switch { width: 100%; }
   .mode-switch button { flex: 1; justify-content: center; }
+  .validation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .validation-row { grid-template-columns: 1fr; gap: .25rem; }
+  .validation-observed code { grid-column: 1; }
 }

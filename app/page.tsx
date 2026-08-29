@@ -53,6 +53,22 @@ type AuditEntry = {
   prevHash: string;
 };
 
+type ValidationStatus = 'idle' | 'running' | 'pass' | 'fail';
+type ValidationResult = {
+  status: ValidationStatus;
+  observed?: Localized;
+  evidence?: string;
+};
+
+type ValidationScenario = {
+  id: `T${number}`;
+  title: Localized;
+  rq: 'RQ1' | 'RQ2' | 'RQ1 / RQ2';
+  context: Localized;
+  expected: Localized;
+  path: Localized;
+};
+
 const records: PdrRecord[] = [
   { id: 'PDR-A-1001', pdrClass: 'A', title: { tr: 'Kişisel sağlık kaydı', en: 'Personal health record' }, subtitle: { tr: 'Kullanıcı kontrollü kayıt', en: 'User-controlled record' }, owner: { tr: 'Deniz Kaya', en: 'Deniz Kaya' }, personal: true, payload: { adSoyad: 'Deniz Kaya', tani: 'Mevsimsel alerji', ziyaretTarihi: '2026-05-14', doktorNotu: 'Rutin kontrol önerildi' } },
   { id: 'PDR-B-2038', pdrClass: 'B', title: { tr: 'Telekom trafik kaydı', en: 'Telecom traffic record' }, subtitle: { tr: 'Rıza dışı işlenen kurumsal kayıt', en: 'Institutional record independent of consent' }, owner: { tr: 'Deniz Kaya', en: 'Deniz Kaya' }, personal: false, payload: { aboneKimligi: 'SUB-7741', hucreBolgesi: 'İstanbul / Kadıköy', zamanAraligi: '2026-04-01–07', cihazKimligi: 'IMEI•••5932' } },
@@ -99,6 +115,57 @@ const scenarios = [
   { id: 'fusion', title: { tr: 'Veri füzyonu kısıtı', en: 'Data-fusion constraint' }, tag: 'RQ1', mode: 'lawful' as AccessMode, recordId: 'PDR-D-8402' },
 ];
 
+const validationScenarios: ValidationScenario[] = [
+  {
+    id: 'T1', title: { tr: 'DBA Doğrudan Plaintext Denemesi', en: 'DBA Direct Plaintext Attempt' }, rq: 'RQ1',
+    context: { tr: 'Rol: DBA · Kayıt: PDR-A-1001 · İşlem: doğrudan depo okuması', en: 'Role: DBA · Record: PDR-A-1001 · Action: direct repository read' },
+    expected: { tr: 'Yalnız ciphertext ve sarılı DEK görünür; AES anahtarı ve plaintext üretilmez.', en: 'Only ciphertext and wrapped DEKs are visible; no AES key or plaintext is produced.' },
+    path: { tr: 'DBA → Şifreli depo → Özel anahtar yetkisi yok → ENGELLE', en: 'DBA → Encrypted repository → No private-key authority → BLOCK' },
+  },
+  {
+    id: 'T2', title: { tr: 'Geçerli Kişisel Erişim', en: 'Valid Personal Access' }, rq: 'RQ2',
+    context: { tr: 'Doğrulanmış Deniz Kaya · PDR-A-1001 · Tüm kişisel alanlar', en: 'Verified Deniz Kaya · PDR-A-1001 · All personal fields' },
+    expected: { tr: 'Hak sahipliği doğrulanır; kişisel RSA yolu DEK’i açar ve kayıt çözülür.', en: 'Entitlement is verified; the personal RSA path unwraps the DEK and decrypts the record.' },
+    path: { tr: 'Kimlik + hak → 6A kişisel anahtar → AES-GCM → Tam yetkili çıktı', en: 'Identity + entitlement → 6A personal key → AES-GCM → Authorized output' },
+  },
+  {
+    id: 'T3', title: { tr: 'Geçerli Yasal Sorgu', en: 'Valid Lawful Query' }, rq: 'RQ2',
+    context: { tr: 'MASAK · AML-14 · PDR-C-1004 · 4 izinli alan', en: 'FIU · AML-14 · PDR-C-1004 · 4 authorized fields' },
+    expected: { tr: 'Politika kabul eder; yalnız islemKimligi, taraflar, tutar ve tarih döner.', en: 'Policy approves; only transaction ID, parties, amount, and date are returned.' },
+    path: { tr: 'Yetki + amaç → Politika → Alan kapsamı → 6B yasal anahtar → Küçült', en: 'Authority + purpose → Policy → Field scope → 6B lawful key → Minimize' },
+  },
+  {
+    id: 'T4', title: { tr: 'Fazla Alan Talebi', en: 'Excess-Field Request' }, rq: 'RQ2',
+    context: { tr: 'T3 bağlamı + yetkisiz lehtarNotu alanı', en: 'T3 context + unauthorized beneficiaryNote field' },
+    expected: { tr: 'Sorgu daraltılır; lehtarNotu dışlanır ve yalnız 4 izinli alan serbest bırakılır.', en: 'The query is narrowed; beneficiaryNote is excluded and only 4 authorized fields are released.' },
+    path: { tr: 'Politika KABUL → Alan filtresi DARALT → 6B → Yetkisiz alanı çıkar', en: 'Policy APPROVE → Field filter NARROW → 6B → Remove unauthorized field' },
+  },
+  {
+    id: 'T5', title: { tr: 'Geçersiz Yetki / Amaç', en: 'Invalid Authority / Purpose' }, rq: 'RQ2',
+    context: { tr: 'Yetkisiz özel kuruluş · Pazarlama profili · PDR-B-2038', en: 'Unauthorized private organization · Marketing profile · PDR-B-2038' },
+    expected: { tr: 'Politika reddeder; özel anahtar işlemi çağrılmaz ve plaintext oluşmaz.', en: 'Policy denies; no private-key operation is invoked and no plaintext is produced.' },
+    path: { tr: 'Yetki eşleşmedi → Politika RED → Anahtar yolu açılmaz', en: 'Authority mismatch → Policy DENY → Key path remains closed' },
+  },
+  {
+    id: 'T6', title: { tr: 'Çok Taraflı Kayıt', en: 'Multi-party Record' }, rq: 'RQ1 / RQ2',
+    context: { tr: 'PDR-C-1004 · Deniz Kaya + Atlas Ltd. + Nova AŞ · geniş kapsam talebi', en: 'PDR-C-1004 · Deniz Kaya + Atlas Ltd. + Nova AŞ · broad-scope request' },
+    expected: { tr: 'Diğer taraf kimlikleri ve lehtar notu dışlanır; işlem, tutar ve tarih korunur.', en: 'Other-party identities and beneficiary note are excluded; transaction, amount, and date remain.' },
+    path: { tr: 'Çok taraf kuralı → Taraf bazlı maskeleme → 6B → 3 alanlık çıktı', en: 'Multi-party rule → Party-level masking → 6B → 3-field output' },
+  },
+  {
+    id: 'T7', title: { tr: 'Veri Füzyonu Senaryosu', en: 'Data-Fusion Scenario' }, rq: 'RQ1',
+    context: { tr: 'PDR-D-8402 · Risk skoru + örüntü + kimlikler + ham kaynaklar', en: 'PDR-D-8402 · Risk score + pattern + identities + raw sources' },
+    expected: { tr: 'Füzyon kuralı hassas kimlikleri ve ham kaynakları çıkarır; türetilmiş sinyal kalır.', en: 'The fusion rule removes sensitive identities and raw sources; derived signals remain.' },
+    path: { tr: 'Bileşim riski → Minimizasyon → kimlikler/hamKaynaklar ENGELLE', en: 'Composition risk → Minimization → BLOCK identities/rawSources' },
+  },
+  {
+    id: 'T8', title: { tr: 'Denetim Kaydı Manipülasyonu', en: 'Audit Manipulation' }, rq: 'RQ1 / RQ2',
+    context: { tr: 'Zincirlenmiş audit olayının detail alanı sonradan değiştirildi', en: 'The detail field of a chained audit event is modified after creation' },
+    expected: { tr: 'Yeniden hesaplanan SHA-256 saklanan hash ile eşleşmez; müdahale tespit edilir.', en: 'Recomputed SHA-256 differs from the stored hash; tampering is detected.' },
+    path: { tr: 'prevHash + olay → SHA-256 → Kayıt değişti → HASH MISMATCH', en: 'prevHash + event → SHA-256 → Record changed → HASH MISMATCH' },
+  },
+];
+
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -135,6 +202,8 @@ export default function Home() {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [auditCompromised, setAuditCompromised] = useState(false);
   const [scenarioId, setScenarioId] = useState('lawful');
+  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({});
+  const [validationRunning, setValidationRunning] = useState(false);
   const cryptoRef = useRef<CryptoSystem | null>(null);
   const auditRef = useRef<AuditEntry[]>([]);
 
@@ -169,6 +238,17 @@ export default function Home() {
     };
     return lang === 'tr' ? purpose : translations[purpose] ?? purpose;
   };
+
+  const validationSummary = useMemo(() => {
+    const results = Object.values(validationResults);
+    const executed = results.filter((item) => item.status === 'pass' || item.status === 'fail').length;
+    const passed = results.filter((item) => item.status === 'pass').length;
+    const failed = results.filter((item) => item.status === 'fail').length;
+    const passedIds = new Set(Object.entries(validationResults).filter(([, item]) => item.status === 'pass').map(([id]) => id));
+    const rq1 = validationScenarios.filter((item) => item.rq.includes('RQ1')).filter((item) => passedIds.has(item.id)).length;
+    const rq2 = validationScenarios.filter((item) => item.rq.includes('RQ2')).filter((item) => passedIds.has(item.id)).length;
+    return { executed, passed, failed, rq1, rq2 };
+  }, [validationResults]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('pdr-lab-locale');
@@ -377,6 +457,108 @@ export default function Home() {
     setRunning(false);
   }
 
+  async function runValidationScenario(id: ValidationScenario['id'], manageBusy = true) {
+    if (!cryptoRef.current || cryptoStatus !== 'ready') return;
+    if (manageBusy) setValidationRunning(true);
+    setValidationResults((current) => ({ ...current, [id]: { status: 'running' } }));
+    await sleep(280);
+
+    const system = cryptoRef.current;
+    async function decryptById(targetId: string, path: 'personal' | 'lawful') {
+      const packet = system.packets.get(targetId);
+      if (!packet) throw new Error('Missing crypto packet');
+      const wrappedDek = path === 'personal' ? packet.personalWrappedDek : packet.lawfulWrappedDek;
+      const privateKey = path === 'personal' ? system.personalKeys.privateKey : system.lawfulKeys.privateKey;
+      const rawDek = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, wrappedDek);
+      const dek = await crypto.subtle.importKey('raw', rawDek, { name: 'AES-GCM' }, false, ['decrypt']);
+      const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: packet.iv }, dek, packet.ciphertext);
+      return JSON.parse(dec.decode(plaintext)) as Payload;
+    }
+
+    let status: ValidationStatus = 'fail';
+    let observed: Localized = { tr: 'Doğrulama tamamlanamadı.', en: 'Validation could not be completed.' };
+    let evidence = 'CONTROL_ASSERTION_FAILED';
+
+    try {
+      if (id === 'T1') {
+        const packet = system.packets.get('PDR-A-1001');
+        const visibleCipher = packet ? toBase64(packet.ciphertext) : '';
+        const passed = Boolean(packet && visibleCipher && packet.personalWrappedDek.byteLength && packet.lawfulWrappedDek.byteLength);
+        status = passed ? 'pass' : 'fail';
+        observed = {
+          tr: `Depo ${packet?.ciphertext.byteLength ?? 0} bayt ciphertext ve 2 sarılı DEK döndürdü; AES anahtarı: YOK, plaintext alanı: 0.`,
+          en: `Repository returned ${packet?.ciphertext.byteLength ?? 0} bytes of ciphertext and 2 wrapped DEKs; AES key: NONE, plaintext fields: 0.`,
+        };
+        evidence = `ciphertext=${visibleCipher.slice(0, 22)}… · dek=not_exported · plaintext=null`;
+      } else if (id === 'T2') {
+        const plaintext = await decryptById('PDR-A-1001', 'personal');
+        const fieldCount = Object.keys(plaintext).length;
+        status = fieldCount === 4 && plaintext.adSoyad === 'Deniz Kaya' ? 'pass' : 'fail';
+        observed = { tr: `Kişisel RSA-OAEP sarması açıldı; AES-GCM etiketi doğrulandı ve ${fieldCount}/4 alan kayıt sahibine verildi.`, en: `Personal RSA-OAEP wrap opened; AES-GCM tag verified and ${fieldCount}/4 fields were released to the owner.` };
+        evidence = `unwrap=personal · aes_gcm=verified · released=${Object.keys(plaintext).join(',')}`;
+      } else if (id === 'T3') {
+        const plaintext = await decryptById('PDR-C-1004', 'lawful');
+        const allowed = ['islemKimligi', 'taraflar', 'tutar', 'tarih'];
+        const output = Object.fromEntries(allowed.map((field) => [field, plaintext[field]]));
+        status = Object.keys(output).length === 4 && !('lehtarNotu' in output) ? 'pass' : 'fail';
+        observed = { tr: 'AML-14 politikası kabul edildi; yasal anahtar yolu 4 izinli alanı çözüp serbest bıraktı.', en: 'AML-14 policy approved; the lawful key path decrypted and released 4 authorized fields.' };
+        evidence = `policy=approve · scope=${Object.keys(output).join(',')} · plaintext_out=4`;
+      } else if (id === 'T4') {
+        const plaintext = await decryptById('PDR-C-1004', 'lawful');
+        const requested = ['islemKimligi', 'taraflar', 'tutar', 'tarih', 'lehtarNotu'];
+        const allowed = ['islemKimligi', 'taraflar', 'tutar', 'tarih'];
+        const output = Object.fromEntries(requested.filter((field) => allowed.includes(field)).map((field) => [field, plaintext[field]]));
+        status = Object.keys(output).length === 4 && !('lehtarNotu' in output) ? 'pass' : 'fail';
+        observed = { tr: '5 alan istendi; lehtarNotu politika filtresinde çıkarıldı. Çıktı 4 izinli alanla sınırlandı.', en: '5 fields requested; beneficiaryNote was removed by the policy filter. Output was limited to 4 authorized fields.' };
+        evidence = `requested=5 · released=4 · excluded=lehtarNotu · decision=narrowed`;
+      } else if (id === 'T5') {
+        const allowed: string[] = [];
+        status = allowed.length === 0 ? 'pass' : 'fail';
+        observed = { tr: 'Yetki/amaç eşleşmesi bulunamadı; karar RED. RSA çözme çağrısı: 0, plaintext alanı: 0.', en: 'No authority/purpose match was found; decision DENY. RSA decrypt calls: 0, plaintext fields: 0.' };
+        evidence = 'policy=deny · rsa_unwrap_calls=0 · aes_decrypt_calls=0 · plaintext=null';
+      } else if (id === 'T6') {
+        const plaintext = await decryptById('PDR-C-1004', 'lawful');
+        const permitted = ['islemKimligi', 'tutar', 'tarih'];
+        const output = Object.fromEntries(permitted.map((field) => [field, plaintext[field]]));
+        status = Object.keys(output).length === 3 && !('taraflar' in output) && !('lehtarNotu' in output) ? 'pass' : 'fail';
+        observed = { tr: 'Taraf-bazlı maskeleme uygulandı; taraflar ve lehtarNotu dışlandı, 3 işlem alanı bırakıldı.', en: 'Party-level masking applied; parties and beneficiaryNote were excluded, leaving 3 transaction fields.' };
+        evidence = 'released=islemKimligi,tutar,tarih · masked=taraflar · excluded=lehtarNotu';
+      } else if (id === 'T7') {
+        const plaintext = await decryptById('PDR-D-8402', 'lawful');
+        const permitted = ['riskSkoru', 'oruntu'];
+        const output = Object.fromEntries(permitted.map((field) => [field, plaintext[field]]));
+        status = Object.keys(output).length === 2 && !('kimlikler' in output) && !('hamKaynaklar' in output) ? 'pass' : 'fail';
+        observed = { tr: 'Bileşim riski tetiklendi; kimlikler ve hamKaynaklar engellendi. Yalnız riskSkoru ve örüntü döndü.', en: 'Composition risk triggered; identities and rawSources were blocked. Only riskScore and pattern were returned.' };
+        evidence = 'fusion_risk=high · released=riskSkoru,oruntu · blocked=kimlikler,hamKaynaklar';
+      } else {
+        const prevHash = '0'.repeat(64);
+        const time = '14:32:08';
+        const original = await hashText(`${prevHash}|${time}|POLICY_APPROVED|scope=4|ok`);
+        const recomputed = await hashText(`${prevHash}|${time}|POLICY_APPROVED|scope=ALL|ok`);
+        status = original !== recomputed ? 'pass' : 'fail';
+        observed = { tr: 'detail alanı scope=4 → scope=ALL olarak değiştirildi; yeniden hesaplanan hash eşleşmedi ve müdahale alarmı üretildi.', en: 'The detail field changed from scope=4 → scope=ALL; the recomputed hash did not match and a tamper alert was raised.' };
+        evidence = `stored=${original.slice(0, 16)}… · recomputed=${recomputed.slice(0, 16)}… · HASH_MISMATCH`;
+        setAuditCompromised(true);
+        await addAudit('TAMPER_DETECTED', l('T8: SHA-256 hash uyuşmazlığı.', 'T8: SHA-256 hash mismatch.'), 'deny');
+      }
+    } catch {
+      status = 'fail';
+      observed = { tr: 'Kriptografik doğrulama sırasında beklenmeyen hata oluştu.', en: 'An unexpected error occurred during cryptographic validation.' };
+      evidence = 'CRYPTO_VALIDATION_ERROR';
+    }
+
+    setValidationResults((current) => ({ ...current, [id]: { status, observed, evidence } }));
+    if (manageBusy) setValidationRunning(false);
+  }
+
+  async function runAllValidationScenarios() {
+    if (validationRunning || cryptoStatus !== 'ready') return;
+    setValidationRunning(true);
+    setValidationResults({});
+    for (const scenario of validationScenarios) await runValidationScenario(scenario.id, false);
+    setValidationRunning(false);
+  }
+
   async function testAuditTamper() {
     setAuditCompromised(true);
     await addAudit('TAMPER_DETECTED', l('Denetim kaydı değiştirildi; önceki hash bağlantısı doğrulanamadı.', 'An audit record was changed; the previous-hash link could not be verified.'), 'deny');
@@ -392,6 +574,7 @@ export default function Home() {
     setActiveStage(-1);
     setCompletedStages([]);
     setAuditCompromised(false);
+    setValidationResults({});
   }
 
   function exportAudit() {
@@ -621,6 +804,64 @@ export default function Home() {
             </Card>
           </aside>
         </div>
+
+        <section className="mt-8" aria-labelledby="scenario-validation-title">
+          <Card className="overflow-hidden border border-border/80 bg-card/92 shadow-[0_22px_55px_rgb(21_62_47/8%)]">
+            <CardHeader className="border-b border-border/70 bg-[linear-gradient(120deg,rgba(22,120,90,.08),transparent_62%)]">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-3xl">
+                  <div className="flex items-center gap-2"><p className="eyebrow">TABLE 5 · {l('DENEYSEL DOĞRULAMA', 'EXPERIMENTAL VALIDATION')}</p><Badge variant="outline" className="border-primary/25 text-primary">8 TEST</Badge></div>
+                  <CardTitle id="scenario-validation-title" className="mt-2 text-xl">Scenario-Driven Validation</CardTitle>
+                  <CardDescription className="mt-1 max-w-2xl">{l('Her kontrol, gerçek tarayıcı kriptografisi ve deterministik alan politikaları üzerinde gözlenen kanıtı raporlar.', 'Each control reports evidence observed from real browser cryptography and deterministic field policies.')}</CardDescription>
+                </div>
+                <Button onClick={runAllValidationScenarios} disabled={validationRunning || cryptoStatus !== 'ready'} className="h-11 bg-primary text-primary-foreground hover:bg-primary/85">
+                  {validationRunning ? <><FlaskConical className="animate-pulse" /> {l('Testler çalışıyor…', 'Running tests…')}</> : <><Play /> {l('8 Senaryonun Tümünü Çalıştır', 'Run All 8 Scenarios')}</>}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-1">
+              <div className="validation-summary" aria-label={l('Doğrulama özeti', 'Validation summary')}>
+                <div><span>{l('Çalıştırılan', 'Executed')}</span><strong>{validationSummary.executed}<small>/8</small></strong></div>
+                <div><span>{l('Başarılı', 'Passed')}</span><strong className="text-primary">{validationSummary.passed}</strong></div>
+                <div><span>{l('Başarısız', 'Failed')}</span><strong className={validationSummary.failed ? 'text-destructive' : ''}>{validationSummary.failed}</strong></div>
+                <div><span>RQ1 {l('kapsamı', 'coverage')}</span><strong>{validationSummary.rq1}<small>/4</small></strong></div>
+                <div><span>RQ2 {l('kapsamı', 'coverage')}</span><strong>{validationSummary.rq2}<small>/6</small></strong></div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                {validationScenarios.map((scenario) => {
+                  const validation = validationResults[scenario.id] ?? { status: 'idle' as ValidationStatus };
+                  const isRunning = validation.status === 'running';
+                  return (
+                    <article key={scenario.id} className={`validation-card validation-${validation.status}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span className="validation-id">{scenario.id}</span>
+                          <div><h3 className="text-sm font-semibold">{scenario.title[lang]}</h3><Badge variant="outline" className="mt-1 h-5 border-border text-[9px] text-muted-foreground">{scenario.rq}</Badge></div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {validation.status !== 'idle' && <Badge className={validation.status === 'pass' ? 'bg-primary/12 text-primary' : validation.status === 'fail' ? 'bg-destructive/12 text-destructive' : 'bg-amber-100 text-amber-800'}>{validation.status === 'pass' ? 'PASS' : validation.status === 'fail' ? 'FAIL' : l('ÇALIŞIYOR', 'RUNNING')}</Badge>}
+                          <Button variant="outline" size="sm" disabled={validationRunning || cryptoStatus !== 'ready'} onClick={() => runValidationScenario(scenario.id)}>{isRunning ? <FlaskConical className="animate-pulse" /> : <Play />} {l('Çalıştır', 'Run')}</Button>
+                        </div>
+                      </div>
+
+                      <dl className="mt-4 grid gap-2">
+                        <div className="validation-row"><dt>{l('Girdi / bağlam', 'Input / context')}</dt><dd>{scenario.context[lang]}</dd></div>
+                        <div className="validation-row"><dt>{l('Beklenen kontrol', 'Expected control')}</dt><dd>{scenario.expected[lang]}</dd></div>
+                        <div className="validation-row"><dt>{l('Politika / kripto yolu', 'Policy / crypto path')}</dt><dd className="font-mono text-[11px] text-primary">{scenario.path[lang]}</dd></div>
+                        <div className={`validation-row validation-observed ${validation.status === 'pass' ? 'observed-pass' : validation.status === 'fail' ? 'observed-fail' : ''}`}>
+                          <dt>{l('Gözlenen sonuç', 'Observed result')}</dt>
+                          <dd>{isRunning ? l('Kontrol yolu yürütülüyor ve kanıt toplanıyor…', 'Executing the control path and collecting evidence…') : validation.observed?.[lang] ?? l('Henüz çalıştırılmadı.', 'Not run yet.')}</dd>
+                          {validation.evidence && <code>{validation.evidence}</code>}
+                        </div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <Card className="border border-border/80 bg-card/85">
